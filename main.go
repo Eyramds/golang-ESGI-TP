@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
@@ -311,6 +310,7 @@ func EntryHandler(w http.ResponseWriter, req *http.Request) {
 		buf.ReadFrom(file)
 
 		fmt.Fprintf(w, "%v", buf.String())
+
 	case http.MethodPost:
 
 	}
@@ -320,12 +320,9 @@ func AddHandler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case http.MethodGet:
-		var templates = template.Must(template.ParseFiles("index.html"))
 
-		err := templates.ExecuteTemplate(w, "index.html", os.DevNull)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.ServeFile(w, req, "add.html")
+
 	case http.MethodPost:
 
 		if err := req.ParseForm(); err != nil {
@@ -338,24 +335,33 @@ func AddHandler(w http.ResponseWriter, req *http.Request) {
 			fmt.Println(key, "=>", value)
 		}
 
-		authorEntry := Author{
-			author: req.Form.Get("author"),
-			entry:  req.Form.Get("entry"),
+		if a := req.FormValue("author"); a != "" && req.FormValue("entry") != "" {
+
+			authorEntry := Author{
+				author: req.FormValue("author"),
+				entry:  req.FormValue("entry"),
+			}
+
+			file, err := os.OpenFile("entries.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintln(w, "Something went bad")
+				log.Fatal(err)
+			}
+
+			if authorEntry.author != os.DevNull && authorEntry.entry != os.DevNull {
+
+			}
+
+			if _, err := file.Write([]byte(authorEntry.author + ":" + authorEntry.entry + "\n")); err != nil {
+				log.Fatal(err)
+			}
+
+			if err := file.Close(); err != nil {
+				log.Fatal(err)
+			}
 		}
 
-		file, err := os.OpenFile("entries.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
+		http.ServeFile(w, req, "add.html")
 
-		if _, err := file.Write([]byte(authorEntry.author + ":" + authorEntry.entry + "\n")); err != nil {
-			log.Fatal(err)
-		}
-
-		if err := file.Close(); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Fprintf(w, authorEntry.author+":"+authorEntry.entry+"\n")
-		fmt.Fprintf(w, "Information received: %v\n", req.PostForm)
 	}
 }
